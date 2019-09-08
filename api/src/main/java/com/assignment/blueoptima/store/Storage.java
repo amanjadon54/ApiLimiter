@@ -6,5 +6,7 @@ public interface Storage {
 
     Object persist();
 
+    Object test();
+
 
 }

@@ -1,7 +1,15 @@
 package com.assignment.blueoptima.configuration;
 
-import org.springframework.boot.SpringBootConfiguration;
+import com.assignment.blueoptima.interceptor.FilteringInterceptor;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-@SpringBootConfiguration
-public class ApiLimitConfiguration {
+@Configuration
+public class ApiLimitConfiguration implements WebMvcConfigurer {
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(new FilteringInterceptor()).addPathPatterns("/**").excludePathPatterns("/admin/**");
+    }
 }
