@@ -1,8 +1,9 @@
 package com.assignment.blueoptima.interceptor;
 
-import com.assignment.blueoptima.AllowedApi;
+import com.assignment.blueoptima.ApiLimitDescriptor;
 import com.assignment.blueoptima.exception.ApiLimitException;
 import com.assignment.blueoptima.exception.InvalidApiUserException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -22,6 +23,9 @@ public class FilteringInterceptor extends HandlerInterceptorAdapter {
 
     @Autowired
     private Jedis redis;
+
+    @Autowired
+    ObjectMapper mapper;
 
     private ArrayList<String> errorDetails = new ArrayList<>();
 
@@ -43,7 +47,6 @@ public class FilteringInterceptor extends HandlerInterceptorAdapter {
         log.info(String.format("requested url is : {}"), servletPath);
         String path = servletPath.substring(1);
         log.info(String.format("requested path is : {}"), path);
-        //path needs to be checked in list api record
 
         Boolean found = redis.sismember(USER_RECORD, user);
         if (found == true) {
@@ -51,20 +54,25 @@ public class FilteringInterceptor extends HandlerInterceptorAdapter {
             String apiRecord = redis.hget("apiRecord", path);
             if (apiRecord != null && !apiRecord.equals("")) {
                 String data = redis.hget(apiRecord, user);
-                if (data != null && !data.equals("")) {
-                    String values[] = data.split(",");
-                    float time = (System.currentTimeMillis() - Long.parseLong(values[1])) / 1000F;
+                if (data == null) {
+                    throw new ApiLimitException(USER_PRIVILEGE_MESSAGE, prepareExceptionDetails(USER_PRIVILEGE_MESSAGE));
+                }
+                ApiLimitDescriptor descriptor = mapper.readValue(data, ApiLimitDescriptor.class);
+                if (descriptor != null) {
+                    float time = (System.currentTimeMillis() - descriptor.getTime()) / 1000F;
                     if (time < 60) {
-                        if ((Integer.parseInt(values[0])) > 0) {
-                            values[0] = String.valueOf(Integer.parseInt(values[0]) - 1);
-                            redis.hset(apiRecord, user, values[0] + "," + values[1] + "," + values[2]);
+                        if (descriptor.getLimit() > 0) {
+                            descriptor.setLimit(descriptor.getLimit() - 1);
+                            String apiJson = mapper.writeValueAsString(descriptor);
+                            redis.hset(apiRecord, user, apiJson);
                         } else {
                             throw new ApiLimitException(API_LIMIT_REACHED_MESSAGE, prepareExceptionDetails(API_REFRESH_TIME_MESSAGE, API_CUSTOMER_CARE_MESSAGE));
                         }
                     } else {
-                        values[0] = String.valueOf(Integer.parseInt(values[2]) - 1);
-                        values[1] = String.valueOf(System.currentTimeMillis());
-                        redis.hset(apiRecord, user, values[0] + "," + values[1] + "," + values[2]);
+                        descriptor.setLimit(descriptor.getDefaultLimit() - 1);
+                        descriptor.setTime(System.currentTimeMillis());
+                        String jsonData = mapper.writeValueAsString(descriptor);
+                        redis.hset(apiRecord, user, jsonData);
                     }
                 }
             }

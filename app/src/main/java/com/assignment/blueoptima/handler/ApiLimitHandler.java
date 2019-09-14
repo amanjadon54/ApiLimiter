@@ -2,6 +2,7 @@ package com.assignment.blueoptima.handler;
 
 import com.assignment.blueoptima.ApiLimitDescriptor;
 import com.assignment.blueoptima.exception.InvalidApiUserException;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import redis.clients.jedis.Jedis;
 
 import javax.validation.constraints.NotNull;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Map;
@@ -34,15 +36,16 @@ public class ApiLimitHandler {
      * @return
      */
     @PostMapping("/admin/config")
-    public Object addDefaultConfig(@RequestBody ArrayList<ApiLimitDescriptor> apiLimitDescriptors) {
+    public Object addDefaultConfig(@RequestBody ArrayList<ApiLimitDescriptor> apiLimitDescriptors) throws JsonProcessingException {
         log.info("/admin/config invoked");
         for (ApiLimitDescriptor limitDescriptor : apiLimitDescriptors) {
             redis.hset(API_RECORD, limitDescriptor.getApiName(), limitDescriptor.getApiName() + API_RECORD_DATA);
             Set<String> userRecord = redis.smembers(USER_RECORD);
             for (String user : userRecord) {
                 log.info(String.format("/Inserting record of user {}, for api {} with limit to {} and default value of {}"), user, limitDescriptor.getApiName(), limitDescriptor.getLimit(), limitDescriptor.getLimit());
-                redis.hset(limitDescriptor.getApiName() + API_RECORD_DATA, user,
-                        limitDescriptor.getLimit() + "," + System.currentTimeMillis() + "," + limitDescriptor.getLimit());
+                String apiJson = mapper.writeValueAsString(limitDescriptor);
+                log.info("apiJson" + apiJson);
+                redis.hset(limitDescriptor.getApiName() + API_RECORD_DATA, user, apiJson);
             }
         }
         return RECORDS_UPDATED;
@@ -59,19 +62,23 @@ public class ApiLimitHandler {
      */
     @PutMapping("/admin/config/{user}")
     public Object resetUserConfig(@RequestBody @NotNull ApiLimitDescriptor apiLimitDescriptor,
-                                  @PathVariable @NotNull String user) {
+                                  @PathVariable @NotNull String user) throws JsonProcessingException, IOException {
         String mapName = redis.hget(API_RECORD, apiLimitDescriptor.getApiName());
         if (mapName != null) {
             String dataMap = redis.hget(mapName, user);
+            //Modify the existing userConfiguration
             if (dataMap != null && !dataMap.equals("")) {
-                String[] values = dataMap.split(",");
-                values[0] = String.valueOf(apiLimitDescriptor.getLimit());
-                values[2] = String.valueOf(apiLimitDescriptor.getLimit());
-                redis.hset(mapName, user, values[0] + "," + values[1] + "," + values[2]);
+                String apiData = mapper.writeValueAsString(apiLimitDescriptor);
+//                String[] values = dataMap.split(",");
+//                values[0] = String.valueOf(apiLimitDescriptor.getLimit());
+//                values[2] = String.valueOf(apiLimitDescriptor.getLimit());
+                redis.hset(mapName, user, apiData);
             } else {
+                //Add a new user configuration if it doesnot exist for this Api , provided user is valid
                 Boolean isMember = redis.sismember(USER_RECORD, user);
                 if (isMember) {
-                    redis.hset(mapName, user, apiLimitDescriptor.getLimit() + "," + System.currentTimeMillis() + "," + apiLimitDescriptor.getDefaultLimit());
+                    String apiData = mapper.writeValueAsString(apiLimitDescriptor);
+                    redis.hset(mapName, user, apiData);
                 } else {
                     throw new InvalidApiUserException("User data not valid", null);
                 }
@@ -94,6 +101,11 @@ public class ApiLimitHandler {
         return redis.hgetAll(apiName + API_RECORD_DATA);
     }
 
+    @GetMapping("/admin/api")
+    public Object fetchCapturedApis() {
+        return redis.hgetAll(API_RECORD);
+    }
+
     @PutMapping("/admin/api/{api}")
     public Object addApiForConfiguration(@PathVariable String api) {
         long status = 0;
@@ -107,9 +119,12 @@ public class ApiLimitHandler {
     public Object removeApiFromCapturing(@PathVariable String api) {
         long status = 0;
         if (api != null) {
+            //delete the api from api record.
             String apiData = redis.hget(API_RECORD, api);
+            //Also, remove the api related configuration
             if (apiData != null && !apiData.equals("")) {
-                status = redis.del(apiData);
+                redis.del(apiData);
+                status = redis.hdel(API_RECORD, api);
             }
         }
         return status + RECORDS_UPDATED;
@@ -154,8 +169,10 @@ public class ApiLimitHandler {
     public Object deleteUsers(@RequestBody String[] users) {
         long status = 0;
         if (users != null && users.length > 0) {
+            //delete users from user database.
             status = redis.srem(USER_RECORD, users);
             if (status != 0) {
+                //Also, remove this deleted user configuration of apis.
                 Map<String, String> apiRecord = redis.hgetAll(API_RECORD);
                 Collection<String> apiUsers = apiRecord.values();
                 for (String apiDataName : apiUsers) {
