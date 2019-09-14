@@ -2,6 +2,7 @@ package com.assignment.blueoptima.excetion;
 
 import com.assignment.blueoptima.exception.ApiLimitException;
 import com.assignment.blueoptima.exception.ErrorResponse;
+import com.assignment.blueoptima.exception.InvalidApiUserException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -14,6 +15,13 @@ import java.util.List;
 
 @ControllerAdvice
 public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @ExceptionHandler(InvalidApiUserException.class)
+    public final ResponseEntity<Object> handleInvalidApiUser(InvalidApiUserException ex, WebRequest request) {
+        List<String> details = new ArrayList<>();
+        ErrorResponse error = new ErrorResponse(ex.getMessage(), ex.getDetails());
+        return new ResponseEntity(error, HttpStatus.PRECONDITION_FAILED);
+    }
 
     @ExceptionHandler(ApiLimitException.class)
     public final ResponseEntity<Object> handleApiLimitException(ApiLimitException ex, WebRequest request) {
