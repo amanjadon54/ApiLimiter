@@ -4,6 +4,7 @@ import com.assignment.blueoptima.AllowedApi;
 import com.assignment.blueoptima.exception.ApiLimitException;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
 import redis.clients.jedis.Jedis;
 
@@ -12,6 +13,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
 
 @Log4j2
+@Component
 public class FilteringInterceptor extends HandlerInterceptorAdapter {
 
     @Autowired

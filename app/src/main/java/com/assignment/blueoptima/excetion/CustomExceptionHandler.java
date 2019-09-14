@@ -15,7 +15,7 @@ import java.util.List;
 @ControllerAdvice
 public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
 
-    @ExceptionHandler(Exception.class)
+    @ExceptionHandler(ApiLimitException.class)
     public final ResponseEntity<Object> handleApiLimitException(ApiLimitException ex, WebRequest request) {
         List<String> details = new ArrayList<>();
         ErrorResponse error = new ErrorResponse(ex.getMessage(), ex.getDetails());

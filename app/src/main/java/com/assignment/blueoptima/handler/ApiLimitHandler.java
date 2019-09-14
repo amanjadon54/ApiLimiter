@@ -43,11 +43,6 @@ public class ApiLimitHandler {
         return "OK";
     }
 
-    @GetMapping("/admin/config")
-    public Object getApiConfigurations(){
-        return null;
-    }
-
     @PostMapping("/admin/config")
     public Object addDefaultConfig(@RequestBody ArrayList<ApiLimitDescriptor> apiLimitDescriptors) {
         for (ApiLimitDescriptor limitDescriptor : apiLimitDescriptors) {
@@ -85,13 +80,13 @@ public class ApiLimitHandler {
 
     /***
      *
-     * @param key
+     * @param apiName
      * @return
      */
 
-    @GetMapping("/admin/expose/{key}")
-    public Object exposeRedis(@PathVariable String key) {
-        return redis.hgetAll(key);
+    @GetMapping("/admin/config/{api}")
+    public Object exposeRedis(@PathVariable String apiName) {
+        return redis.hgetAll(apiName + API_RECORD_DATA);
     }
 
 
@@ -115,7 +110,7 @@ public class ApiLimitHandler {
         return status;
     }
 
-    @DeleteMapping("/admin/user/{userId}")
+    @DeleteMapping("/admin/users/{userId}")
     public Object addUsers(@PathVariable String user) {
         long status = 0;
         if (user != null && !user.equals("")) {
