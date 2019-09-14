@@ -6,4 +6,5 @@ import lombok.Data;
 public class ApiLimitDescriptor {
     private String apiName;
     private int limit;
+    private int defaultLimit;
 }

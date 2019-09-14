@@ -36,10 +36,10 @@ public class FilteringInterceptor extends HandlerInterceptorAdapter {
 
                 float time = (System.currentTimeMillis() - Long.parseLong(values[1])) / 1000F;
 
-                if (time < 120) {
+                if (time < 60) {
                     if ((Integer.parseInt(values[0])) > 0) {
                         values[0] = String.valueOf(Integer.parseInt(values[0]) - 1);
-                        redis.hset(userRecord, user, values[0] + "," + values[1]);
+                        redis.hset(userRecord, user, values[0] + "," + values[1] + "," + values[2]);
                     } else {
                         ArrayList<String> errorDetails = new ArrayList<>();
                         errorDetails.add("1. Please wait for refreshing time as alloted in your plan");
@@ -47,9 +47,10 @@ public class FilteringInterceptor extends HandlerInterceptorAdapter {
                         throw new ApiLimitException("Limit for Accessing service reached maximum limit", errorDetails);
                     }
                 } else {
-                    values[0] = String.valueOf(Integer.parseInt(values[0]) - 1);
+                    //assign the count with default count
+                    values[0] = values[2];
                     values[1] = String.valueOf(System.currentTimeMillis());
-                    redis.hset(userRecord, user, values[0] + "," + values[1]);
+                    redis.hset(userRecord, user, values[0] + "," + values[1] + "," + values[2]);
                 }
             }
         }

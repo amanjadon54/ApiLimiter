@@ -8,7 +8,9 @@ import redis.clients.jedis.Jedis;
 
 import javax.validation.constraints.NotNull;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @RestController
 @Log4j2
@@ -47,10 +49,10 @@ public class ApiLimitHandler {
     public Object addDefaultConfig(@RequestBody ArrayList<ApiLimitDescriptor> apiLimitDescriptors) {
         for (ApiLimitDescriptor limitDescriptor : apiLimitDescriptors) {
             redis.hset(API_RECORD, limitDescriptor.getApiName(), limitDescriptor.getApiName() + API_RECORD_DATA);
-            List<String> userRecord = redis.lrange(USER_RECORD, 0, -1);
+            Set<String> userRecord = redis.smembers(USER_RECORD);
             for (String user : userRecord) {
                 redis.hset(limitDescriptor.getApiName() + API_RECORD_DATA, user,
-                        limitDescriptor.getLimit() + "," + System.currentTimeMillis());
+                        limitDescriptor.getLimit() + "," + System.currentTimeMillis() + "," + limitDescriptor.getLimit());
             }
         }
         return null;
@@ -67,7 +69,8 @@ public class ApiLimitHandler {
             if (dataMap != null && !dataMap.equals("")) {
                 String[] values = dataMap.split(",");
                 values[0] = String.valueOf(limit);
-                redis.hset(mapName, user, values[0] + "," + values[1]);
+                values[2] = String.valueOf(limit);
+                redis.hset(mapName, user, values[0] + "," + values[1] + "," + values[2]);
             } else {
                 throw new RuntimeException("User data not valid");
             }
@@ -84,7 +87,7 @@ public class ApiLimitHandler {
      * @return
      */
 
-    @GetMapping("/admin/config/{api}")
+    @GetMapping("/admin/config/{apiName}")
     public Object exposeRedis(@PathVariable String apiName) {
         return redis.hgetAll(apiName + API_RECORD_DATA);
     }
@@ -96,25 +99,24 @@ public class ApiLimitHandler {
 
     @GetMapping("/admin/users")
     public Object fetchUsers() {
-        return redis.lrange(USER_RECORD, 0, -1);
+        return redis.smembers(USER_RECORD);
     }
 
     @PostMapping("/admin/users")
-    public Object addUsers(@RequestBody ArrayList<String> users) {
+    public Object addUsers(@RequestBody String[] users) {
         long status = 0;
-        if (users != null && users.size() != 0) {
-            for (String user : users) {
-                status = redis.lpush(USER_RECORD, user);
-            }
+        if (users != null) {
+            status = redis.sadd(USER_RECORD, users);
         }
         return status;
     }
 
     @DeleteMapping("/admin/users/{userId}")
-    public Object addUsers(@PathVariable String user) {
+    public Object deleteUsers(@PathVariable String[] user) {
         long status = 0;
-        if (user != null && !user.equals("")) {
-            status = redis.lrem(USER_RECORD, 1, user);
+
+        if (user != null && user.length > 0) {
+            status = redis.srem(USER_RECORD, user);
         }
         return status;
     }
