@@ -29,6 +29,17 @@ public class ApiLimitHandler {
     ObjectMapper mapper;
 
     /***
+     * Provides the functionality to view the configuration of a service(api).
+     * Only allowed for Admin with password protection.
+     * @param apiName
+     * @return
+     */
+    @GetMapping("/admin/config/{apiName}")
+    public Object exposeConfig(@PathVariable String apiName) {
+        return redis.hgetAll(apiName + API_RECORD_DATA);
+    }
+
+    /***
      * Service to Add configurations(default) related to endpoint and users.
      * Takes care of the threshold and default value for the users for specific APIs.
      * Provides the functionality only to admin and is password protected.
@@ -66,36 +77,18 @@ public class ApiLimitHandler {
         String mapName = redis.hget(API_RECORD, apiLimitDescriptor.getApiName());
         if (mapName != null) {
             String dataMap = redis.hget(mapName, user);
-            //Modify the existing userConfiguration
-            if (dataMap != null && !dataMap.equals("")) {
+            //Add/Modify user configuration if it doesnot exist for this Api , provided user is valid
+            Boolean isMember = redis.sismember(USER_RECORD, user);
+            if (isMember) {
                 String apiData = mapper.writeValueAsString(apiLimitDescriptor);
                 redis.hset(mapName, user, apiData);
             } else {
-                //Add a new user configuration if it doesnot exist for this Api , provided user is valid
-                Boolean isMember = redis.sismember(USER_RECORD, user);
-                if (isMember) {
-                    String apiData = mapper.writeValueAsString(apiLimitDescriptor);
-                    redis.hset(mapName, user, apiData);
-                } else {
-                    throw new InvalidApiUserException("User data not valid", null);
-                }
+                throw new InvalidApiUserException("User data not valid", null);
             }
         } else {
             throw new InvalidApiUserException("Api does not exist", null);
         }
         return redis.hget(mapName, user);
-    }
-
-
-    /***
-     * Provides the functionality to view the configuration of an api.
-     * Only allowed for Admin with password protection.
-     * @param apiName
-     * @return
-     */
-    @GetMapping("/admin/config/{apiName}")
-    public Object exposeConfig(@PathVariable String apiName) {
-        return redis.hgetAll(apiName + API_RECORD_DATA);
     }
 
     @GetMapping("/admin/api")

@@ -60,13 +60,13 @@ public class FilteringInterceptor extends HandlerInterceptorAdapter {
                 ApiLimitDescriptor descriptor = mapper.readValue(data, ApiLimitDescriptor.class);
                 if (descriptor != null) {
                     float time = (System.currentTimeMillis() - descriptor.getTime()) / 1000F;
-                    if (time < 60) {
+                    if (time < descriptor.getRefreshTime()) {
                         if (descriptor.getLimit() > 0) {
                             descriptor.setLimit(descriptor.getLimit() - 1);
                             String apiJson = mapper.writeValueAsString(descriptor);
                             redis.hset(apiRecord, user, apiJson);
                         } else {
-                            throw new ApiLimitException(API_LIMIT_REACHED_MESSAGE, prepareExceptionDetails(API_REFRESH_TIME_MESSAGE, API_CUSTOMER_CARE_MESSAGE));
+                            throw new ApiLimitException(API_LIMIT_REACHED_MESSAGE, prepareExceptionDetails(API_REFRESH_TIME_MESSAGE + (descriptor.getRefreshTime() - time), API_CUSTOMER_CARE_MESSAGE));
                         }
                     } else {
                         descriptor.setLimit(descriptor.getDefaultLimit() - 1);

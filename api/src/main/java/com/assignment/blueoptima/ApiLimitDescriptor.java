@@ -8,4 +8,5 @@ public class ApiLimitDescriptor {
     private int limit;
     private long time;
     private int defaultLimit;
+    private float refreshTime;
 }
