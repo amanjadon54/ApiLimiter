@@ -13,6 +13,10 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 import java.util.ArrayList;
 import java.util.List;
 
+/***
+ * Handler to take care of the custom exception.
+ * Takes care of the appropriate HTTP status code in case of unfortunate events.
+ */
 @ControllerAdvice
 public class CustomExceptionHandler extends ResponseEntityExceptionHandler {
 

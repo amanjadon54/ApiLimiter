@@ -12,6 +12,10 @@ public class ApiLimitConfiguration implements WebMvcConfigurer {
     @Autowired
     private FilteringInterceptor filteringInterceptor;
 
+    /***
+     * Interceptor to intercept all apis excluding the ones which start with /admin and /error
+     * @param registry
+     */
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(filteringInterceptor).addPathPatterns("/**")

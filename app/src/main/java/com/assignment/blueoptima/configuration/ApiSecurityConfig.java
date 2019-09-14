@@ -12,6 +12,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @Configuration
 public class ApiSecurityConfig extends WebSecurityConfigurerAdapter {
 
+    /**
+     * Configures the ADMIN Roles for all the apis starting with /admin so as to provide basic authentication
+     * It allows to map the roles to apis as to control the access.
+     *
+     * @param http
+     * @throws Exception
+     */
     @Override
     protected void configure(HttpSecurity http) throws Exception {
         http.csrf().disable()
@@ -21,6 +28,12 @@ public class ApiSecurityConfig extends WebSecurityConfigurerAdapter {
                 .httpBasic();
     }
 
+    /**
+     * Function to manage and create roles and passwords.
+     *
+     * @param auth
+     * @throws Exception
+     */
     @Autowired
     public void configureGlobal(AuthenticationManagerBuilder auth) throws Exception {
         auth.inMemoryAuthentication()
