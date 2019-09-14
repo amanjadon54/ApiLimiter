@@ -1,10 +1,9 @@
-package exception;
+package com.assignment.blueoptima.exception;
 
-import lombok.Getter;
-import lombok.Setter;
-
+import lombok.Data;
 import java.util.List;
 
+@Data
 public class ErrorResponse {
 
     public ErrorResponse(String message, List<String> details) {
@@ -14,12 +13,8 @@ public class ErrorResponse {
     }
 
     //General error message about nature of error
-    @Getter
-    @Setter
     private String message;
 
     //Specific errors in API request processing
-    @Getter
-    @Setter
     private List<String> details;
 }
