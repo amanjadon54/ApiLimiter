@@ -69,9 +69,6 @@ public class ApiLimitHandler {
             //Modify the existing userConfiguration
             if (dataMap != null && !dataMap.equals("")) {
                 String apiData = mapper.writeValueAsString(apiLimitDescriptor);
-//                String[] values = dataMap.split(",");
-//                values[0] = String.valueOf(apiLimitDescriptor.getLimit());
-//                values[2] = String.valueOf(apiLimitDescriptor.getLimit());
                 redis.hset(mapName, user, apiData);
             } else {
                 //Add a new user configuration if it doesnot exist for this Api , provided user is valid

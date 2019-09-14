@@ -6,7 +6,6 @@
     <modules>
         <module>api</module>
         <module>app</module>
-        <module>core</module>
     </modules>
     <parent>
         <groupId>org.springframework.boot</groupId>
