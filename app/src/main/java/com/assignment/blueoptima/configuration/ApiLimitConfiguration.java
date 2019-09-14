@@ -19,6 +19,7 @@ public class ApiLimitConfiguration implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(filteringInterceptor).addPathPatterns("/**")
-                .excludePathPatterns("/admin/**").excludePathPatterns("/error/**");
+                .excludePathPatterns("/admin/**").excludePathPatterns("/error/**").excludePathPatterns("/webjars/**")
+                .excludePathPatterns("/swagger-ui.html/**").excludePathPatterns("/swagger-resources/**");
     }
 }

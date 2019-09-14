@@ -14,6 +14,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
 
+import static com.assignment.blueoptima.ApiLimitConstants.API_RECORD;
 import static com.assignment.blueoptima.ApiLimitConstants.USER_RECORD;
 import static com.assignment.blueoptima.exception.ExceptionConstants.*;
 
@@ -47,9 +48,15 @@ public class FilteringInterceptor extends HandlerInterceptorAdapter {
         log.info(String.format("requested url is : {}"), servletPath);
         String path = servletPath.substring(1);
         log.info(String.format("requested path is : {}"), path);
+        Boolean apiFound = redis.hexists(API_RECORD, path);
+        Boolean userFound = false;
+        if (apiFound == true) {
+            userFound = redis.sismember(USER_RECORD, user);
+        } else {
+            return true;
+        }
 
-        Boolean found = redis.sismember(USER_RECORD, user);
-        if (found == true) {
+        if (userFound == true) {
             log.info(String.format("MATCHED IN ENUM THE {} : {}"), path, user);
             String apiRecord = redis.hget("apiRecord", path);
             if (apiRecord != null && !apiRecord.equals("")) {
