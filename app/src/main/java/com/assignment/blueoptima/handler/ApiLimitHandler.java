@@ -1,14 +1,18 @@
 package com.assignment.blueoptima.handler;
 
 import com.assignment.blueoptima.ApiLimitDescriptor;
+import com.assignment.blueoptima.client.HttpClient;
+import com.assignment.blueoptima.exception.ApiLimitException;
 import com.assignment.blueoptima.exception.InvalidApiUserException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.swagger.annotations.ApiOperation;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import redis.clients.jedis.Jedis;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.constraints.NotNull;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -17,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static com.assignment.blueoptima.ApiLimitConstants.*;
+import static com.assignment.blueoptima.exception.ExceptionConstants.*;
 
 @RestController
 @Log4j2
@@ -28,24 +33,22 @@ public class ApiLimitHandler {
     @Autowired
     ObjectMapper mapper;
 
-    /***
-     * Provides the functionality to view the configuration of a service(api).
-     * Only allowed for Admin with password protection.
-     * @param apiName
-     * @return
-     */
+
+    /**
+     * GROUP OF APIs to add/view/modify the configuration related to service.
+     **/
+    @ApiOperation(value = "Provides the functionality only to admin and is password protected. " +
+            "API is to be given as - seperated values, like if the api to track is v1/v2 , " +
+            "then provide apiName as v1-v2. Password protected")
     @GetMapping("/admin/config/{apiName}")
     public Object exposeConfig(@PathVariable String apiName) {
         return redis.hgetAll(apiName + API_RECORD_DATA);
     }
 
-    /***
-     * Service to Add configurations(default) related to endpoint and users.
-     * Takes care of the threshold and default value for the users for specific APIs.
-     * Provides the functionality only to admin and is password protected.
-     * @param apiLimitDescriptors
-     * @return
-     */
+
+    @ApiOperation(value = "Service to Add configurations(default) related to endpoint + users.\n" +
+            "Takes care of the threshold and default value for the users for specific APIs along with the refreshing period.\n" +
+            "Provides the functionality only to admin and is password protected.")
     @PostMapping("/admin/config")
     public Object addDefaultConfig(@RequestBody ArrayList<ApiLimitDescriptor> apiLimitDescriptors) throws JsonProcessingException {
         log.info("/admin/config invoked");
@@ -60,17 +63,12 @@ public class ApiLimitHandler {
             }
         }
         return RECORDS_UPDATED;
-
     }
 
-    /***
-     * Provides the functionality to Admin to modify the limit of specific user and api combination.
-     * Admin can also add new configurations for users.
-     * Password protected to allow only admin to make changes.
-     * @param apiLimitDescriptor
-     * @param user
-     * @return
-     */
+
+    @ApiOperation(value = "Provides the functionality to Admin to modify the limit of specific user + api combination.\n" +
+            "Admin can also add new configurations for users like change limit, default limit and refreshing period.\n" +
+            "Password protected to allow only admin to make changes.")
     @PutMapping("/admin/config/{user}")
     public Object resetUserConfig(@RequestBody @NotNull ApiLimitDescriptor apiLimitDescriptor,
                                   @PathVariable @NotNull String user) throws JsonProcessingException, IOException {
@@ -91,11 +89,14 @@ public class ApiLimitHandler {
         return redis.hget(mapName, user);
     }
 
+
+    @ApiOperation(value = "Fetches the list of all services our limiting application is keeping a track of. Password protected.")
     @GetMapping("/admin/api")
     public Object fetchCapturedApis() {
         return redis.hgetAll(API_RECORD);
     }
 
+    @ApiOperation(value = "Provides a mechanism to allow to track a service by our limiting application. Password protected")
     @PutMapping("/admin/api/{api}")
     public Object addApiForConfiguration(@PathVariable String api) {
         long status = 0;
@@ -105,6 +106,7 @@ public class ApiLimitHandler {
         return status + RECORDS_UPDATED;
     }
 
+    @ApiOperation(value = "To remove a service from our limiting application tracking. Will remove users mapping with this service too. Password protected.")
     @DeleteMapping("/admin/api/{api}")
     public Object removeApiFromCapturing(@PathVariable String api) {
         long status = 0;
@@ -120,25 +122,14 @@ public class ApiLimitHandler {
         return status + RECORDS_UPDATED;
     }
 
-    /**
-     * APIS RELATED TO USERS MANAGEMENT
-     */
-    /**
-     * Admin can get all users/client
-     *
-     * @return
-     */
+
+    @ApiOperation(value = "Fetches the all list of users/client. Password protected")
     @GetMapping("/admin/users")
     public Object fetchUsers() {
         return redis.smembers(USER_RECORD);
     }
 
-    /**
-     * Admin can add users/clients.
-     *
-     * @param users
-     * @return
-     */
+    @ApiOperation(value = "To add a user in our application. Password protected")
     @PostMapping("/admin/users")
     public Object addUsers(@RequestBody String[] users) {
         long status = 0;
@@ -148,13 +139,7 @@ public class ApiLimitHandler {
         return status + RECORDS_UPDATED;
     }
 
-    /**
-     * Admin can delete multiple users/clients in a single go.
-     * Also, results in deleting the configuration of that users
-     *
-     * @param users
-     * @return
-     */
+    @ApiOperation(value = "To remove a user from our user tracking. Also, results in deleting the configuration of that users from limiting appliation. Password protected.")
     @DeleteMapping("/admin/users")
     public Object deleteUsers(@RequestBody String[] users) {
         long status = 0;
@@ -173,43 +158,70 @@ public class ApiLimitHandler {
         return status + RECORDS_UPDATED;
     }
 
+    @ApiOperation(value = "Service to check and limit the access on basis of limit time for users + api combination." +
+            "Also keep track of refreshing period with default limit, once the limit has been exceeded.")
+    @GetMapping("/limit/{apiName}")
+    public Object checkLimit(@PathVariable String apiName, HttpServletRequest request) throws IOException {
+        log.info("--------   TRYING TO FETCH LIMIT FOR USER AND API  --- ");
+        String user = request.getHeader("userName");
+        log.info(String.format("requested path is : {}"), apiName);
+        Boolean apiFound = redis.hexists(API_RECORD, apiName);
+        Boolean userFound = false;
+        //checking if we are capturing the provided api or not.
+        if (apiFound == true && user != null) {
+            userFound = redis.sismember(USER_RECORD, user);
+        } else {
+            throw new ApiLimitException(USER_PRIVILEGE_MESSAGE, prepareExceptionDetails(API_NOT_CAPTURING_MESSAGE, USER_NOT_VALID));
+        }
 
-    /**
-     * Health check of server api
-     *
-     * @return
-     */
+        //checking if the user has access to this api at all or not.
+        if (userFound == true) {
+            String apiRecord = redis.hget(API_RECORD, apiName);
+            if (apiRecord != null && !apiRecord.equals("")) {
+                String data = redis.hget(apiRecord, user);
+                if (data == null) {
+                    throw new ApiLimitException(USER_PRIVILEGE_MESSAGE, prepareExceptionDetails(USER_PRIVILEGE_MESSAGE));
+                }
+                ApiLimitDescriptor descriptor = mapper.readValue(data, ApiLimitDescriptor.class);
+                if (descriptor != null) {
+                    //calculating the limit , once the user has accessed the api.
+                    float time = (System.currentTimeMillis() - descriptor.getTime()) / 1000F;
+                    if (time < descriptor.getRefreshTime()) {
+                        if (descriptor.getLimit() > 0) {
+                            descriptor.setLimit(descriptor.getLimit() - 1);
+                            String apiJson = mapper.writeValueAsString(descriptor);
+                            redis.hset(apiRecord, user, apiJson);
+                        } else {
+                            throw new ApiLimitException(API_LIMIT_REACHED_MESSAGE, prepareExceptionDetails(API_REFRESH_TIME_MESSAGE + (int) (descriptor.getRefreshTime() - time), API_CUSTOMER_CARE_MESSAGE));
+                        }
+                    } else {
+                        //once the limit reaches the threshold and the refreshing period is up, we refresh the limit again.
+                        descriptor.setLimit(descriptor.getDefaultLimit() - 1);
+                        descriptor.setTime(System.currentTimeMillis());
+                        String jsonData = mapper.writeValueAsString(descriptor);
+                        redis.hset(apiRecord, user, jsonData);
+                    }
+                }
+            }
+        } else {
+            throw new InvalidApiUserException(String.format(USER_NOT_VALID, user), prepareExceptionDetails(USER_PRIVILEGE_MESSAGE + apiName));
+        }
+
+        return "ok";
+    }
+
+
+    @ApiOperation(value = "Server Health check service")
     @GetMapping("/health")
     public Object health() {
         return "pong";
     }
 
-    /**
-     * Test api to test the functionality.
-     * This api takes userName in header so as to allow user to access it.
-     *
-     * @return
-     */
-    @GetMapping("v1")
-    public Object testV1() {
-        return "OK from V1";
+    @ApiOperation(value = "Test service to test the limit application functionality.")
+    @GetMapping("/test/{api}")
+    public Object testV1(HttpServletRequest request, @PathVariable String api) throws Exception {
+        HttpClient.executeHttpClient("http://localhost:9999/limit/", api, request.getHeader("userName"));
+        return "OK from test";
     }
-
-    /**
-     * Another api to test the functionality.
-     * This api takes userName in header so as to allow user to access it.
-     *
-     * @return
-     */
-    @GetMapping("v2")
-    public Object testV2() {
-        return "OK from V2";
-    }
-
-    @GetMapping("redis")
-    public Object redisTest() {
-        return "OK from redis";
-    }
-
 
 }

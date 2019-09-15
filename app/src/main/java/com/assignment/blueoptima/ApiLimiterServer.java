@@ -11,6 +11,11 @@ public class ApiLimiterServer {
         SpringApplication.run(ApiLimiterServer.class, args);
     }
 
+    /**
+     * Component for the connection to redis.
+     * using default configuration of redis which says host:localhost and port : 6379
+     * @return
+     */
     @Bean
     public Jedis jedis() {
         return new Jedis();
